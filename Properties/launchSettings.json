@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Deslang": {
+      "commandName": "Project",
+      "commandLineArgs": "population.deslang utils.deslang"
+    }
+  }
+}
