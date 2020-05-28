@@ -1,0 +1,239 @@
+interface Event {
+    method boolean isFeasible();
+    method real timestamp(); 
+    method void action();
+}
+
+interface DES {
+    method boolean endCondition();
+    method void setClock(real time);
+    method EventQueue events(); 
+}
+
+class State {
+    var int[] history;
+    var int currentSize;
+
+    constructor State(int startAmount) {
+        history = new int[16];       
+        history[0] = startAmount;    
+        currentSize = 1;
+    }
+
+    method void increment(int amount) {
+        var int prevAmount = history[currentSize - 1];
+        if (currentSize == length(history)) {
+            resize(2 * length(history));
+        }
+        history[currentSize] = prevAmount + amount;
+        currentSize = currentSize + 1;   
+        return;        
+    }
+
+    method void decrement(int amount) {
+        var int prevAmount = history[currentSize - 1];
+        if (currentSize == length(history)) {
+            resize(2 * length(history));
+        }
+        history[currentSize] = prevAmount - amount;
+        currentSize = currentSize + 1;   
+        return; 
+    }
+
+    method void resize(int newCapacity) {
+        var int[] newHistory = new int[newCapacity];
+        var int i = 0;
+        while (i < currentSize) {
+            newHistory[i] = history[i];
+            i = i + 1;
+        }
+        history = newHistory;
+        return;
+    }
+
+}
+
+class Statistics {
+
+    constructor Statistics() {
+    }
+
+    method real mean(State state) {
+        var real sum = 0.0;
+        var int i = 0;
+        while (i < state.currentSize) {
+            sum = sum + state.history[i];
+            i = i + 1;
+        }
+        return sum / state.currentSize;
+    }
+
+    method int max(State state) {
+        var int max = state.history[0];
+        var int i = 1;
+        while (i < state.currentSize) {
+            if (state.history[i] > max) {
+                max = state.history[i];
+            }
+            i = i + 1;
+        }
+        return max;
+    }
+
+    method int min(State state) {
+        var int min = state.history[0];
+        var int i = 1;
+        while (i < state.currentSize) {
+            if (state.history[i] < min) {
+                min = state.history[i];
+            }
+            i = i + 1;
+        }
+        return min;
+    }
+}
+
+class Simulation { 
+
+    constructor Simulation() {
+    }
+
+    method void runSimulation(DES system) {
+        var Event nextEvent;
+        while (not system.endCondition() and not system.events().isEmpty()) {
+            nextEvent = system.events().extractMin();                                
+            if (nextEvent.isFeasible()) {
+                nextEvent.action();
+                system.setClock(nextEvent.timestamp());     
+            }
+            updateEvents(system.events());
+        }
+        return;
+    }
+    
+    method void updateEvents(EventQueue events) {
+        var Event[] feasibleEvents;
+        var int numFeasibleEvents = 0;
+        var int i = 0;
+        var int j = 0;
+        while (i < events.currentSize) {
+            if (events.PQ[i+1].isFeasible()) {
+                numFeasibleEvents = numFeasibleEvents + 1;
+            }
+            i = i + 1;
+        }
+        feasibleEvents = new Event[numFeasibleEvents];
+        i = 0;
+        while (i < events.currentSize) {
+            if (events.PQ[i+1].isFeasible()) {
+                feasibleEvents[j] = events.PQ[i+1];
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        events.rebuildPQFromArr(feasibleEvents);
+        return;
+    }
+}
+
+class EventQueue {
+    var Event[] PQ;
+    var int currentSize;
+
+    constructor EventQueue() {
+        PQ = new Event[17];
+        currentSize = 0;
+    }
+
+    method void rebuildPQFromArr(Event[] events) {
+        var int i = 0;
+        var int j = length(events) / 2;
+        currentSize = length(events);
+        PQ = new Event[length(events) + 1];
+        while (i < currentSize) {
+            PQ[i+1] = events[i];
+            i = i + 1;
+        }
+        while (j >= 1) {
+            sink(j);
+            j = j - 1;
+        }
+        return;
+    }
+
+    method boolean isEmpty() {
+        return currentSize == 0;
+    }
+
+    method int size() { 
+        return currentSize; 
+    }
+
+    method void resize(int newCapacity) {
+        var Event[] newPQ = new Event[newCapacity];
+        var int i = 1;
+        while (i <= currentSize) {
+            newPQ[i] = PQ[i];
+            i = i + 1;
+        }
+        PQ = newPQ;
+        return;
+    }
+
+    method void insert(Event e) {
+        if (currentSize == length(PQ) - 1) {
+            resize(2 * length(PQ));
+        }
+        currentSize = currentSize + 1;
+        PQ[currentSize] = e;
+        swim(currentSize);
+        return;
+    }
+
+    method Event extractMin() {           
+        var Event min = PQ[1];
+        exchange(1, currentSize);
+        currentSize = currentSize - 1;
+        sink(1);
+        if (currentSize > 0 and currentSize == (length(PQ) - 1 / 4)) {
+            resize(length(PQ) / 2);
+        }
+        return min;
+    }
+
+    method void swim(int idx) {
+        while (idx > 1 and greater(idx / 2, idx)) {
+            exchange(idx, idx / 2);
+            idx = idx / 2;
+        }
+        return;
+    }
+
+    method void sink(int idx) {
+        var int j;
+        while (2 * idx <= currentSize) {
+            j = 2 * idx;
+            if (j < currentSize and greater(j, j + 1)) {
+                 j = j + 1;
+            }
+            if (not greater(idx, j)) {
+                break; 
+            }
+            exchange(idx, j);
+            idx = j;
+        }
+        return;
+    }
+
+    method boolean greater(int i, int j) {
+        return PQ[i].timestamp() > PQ[j].timestamp();
+    }
+
+    method void exchange(int i, int j) {
+        var Event tmp = PQ[i];
+        PQ[i] = PQ[j];
+        PQ[j] = tmp;
+        return;
+    }
+}
+

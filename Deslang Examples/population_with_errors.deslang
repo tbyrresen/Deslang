@@ -1,0 +1,241 @@
+﻿class Program {
+    constructor Program() {
+    }
+
+    method void Main() {
+        var Population population = new Population(10, 10);
+        var Simulation simulation = new Simulation();
+        var Statistics statistics = new Statistics();
+
+        simulation.runSimulation(population);
+
+        print("Mean female population: ");
+        printLine(statistics.mean(population.femaleCount));
+        print("Mean male population: ");
+        printLine(statistics.mean(population.maleCount));
+        print("Max female population: ");
+        printLine(statistics.max(population.femaleCount));
+        print("Max male population: ");
+        printLine(statistics.max(population.maleCount));
+        print("Min female population: ");
+        printLine(statistics.min(population.femaleCount));
+        print("Min male population: ");
+        printLine(statistics.min(population.maleCount));
+
+        return;
+    }
+}
+
+class Population implements DES {
+    var Female[] populationFemales;
+    var int populationFemalesCount;
+    var Male[] populationMales;
+    var int populationMalesCount;
+    var EventQueue populationEvents;
+    var State femaleCount;
+    var State maleCount;
+    var real populationClock;
+
+    constructor Population(int numFemales, int numMales) {
+        populationFemales = new Female[1000];
+        populationFemalesCount = 0;
+        populationMales = new Male[1000];
+        populationMalesCount = 0;
+        populationEvents = new EventQueue();
+        femaleCount = new State(numFemales);
+        maleCount = new State(numMales);
+        populationClock = 0.0;
+        initPopulation(numFemales, numMales); 
+    }
+
+    method void initPopulation(int numFemales, int numMales) {
+        var int i = 0;
+        var int j = 0;
+        var Female female;
+        var Male male;
+        while (i < numFemales) {
+            female = new Female(this);
+            populationFemales[i] = female;
+            i = i + 1;
+        }
+        while (j < numMales) {
+            male = new Male(this);
+            populationMales[j] = male;
+            j = j + 1;
+        }
+        populationFemalesCount = i;
+        populationMalesCount = j;
+        return;
+    }
+
+    method boolean endCondition() {
+        return populationClock >= 1200.0;
+    }
+
+    method void setClock(real time) {
+        populationClock = time;
+        return 2; # void methods cannot return expressions. Try removing the '2' from the return statement. 
+    }
+
+    method EventQueue events() {
+        return populationEvents;
+    }
+}
+
+class Female {
+    var Population population;
+    var boolean isPregnant;
+    var boolean isAlive;
+
+    constructor Female(Population population) {
+        isPregnant = false;
+        isAlive = true;
+        this.population = population; 
+        population.events().insert(new GetsPregnant(
+            this,
+            population,
+            population.populationClock + normal(360.0, 8.0)
+        ));
+        population.events().insert(new FemaleDies(
+            this,
+            population,
+            population.populationClock + normal(900.0, 12.0)          
+        ));
+    }
+}
+
+# class must contain the 'isFeasible' method to implement the 'Event' interface
+# the interface is found in the file 'utils.deslang'
+class FemaleDies implements Event { 
+    var Female female;
+    var Population population;
+    var real eventTimestamp;
+
+    constructor FemaleDies(Female female, Population population, real timestamp) {
+        this.female = female;
+        this.population = population;
+        eventTimestamp = timestamp;
+    }
+
+    method real timestamp() {
+        break; # invalid use of break keyword outside looping constructs
+        return eventTimestamp;
+    }
+
+    method void action() {
+        female.isAlive = false;  
+        population.femaleCount.decrement(1);   
+        return; 
+    }
+}
+
+class GetsPregnant implements Event {
+    var Female female;
+    var Population population;
+    var real eventTimestamp;
+
+    constructor GetsPregnant(Female female, Population population, real timestamp) {
+        this.female = female;
+        this.population = population;
+        eventTimestamp = timestamp;
+    }
+
+    method boolean isFeasible() {
+        return female.isAlive and not female.isPregnant;
+    }
+
+    method real timestamp() {
+        return 2; # should return type real (and more specifically the 'eventTimestamp' class)
+    }
+
+    method void action() {
+        female.isPregnant = true;
+        population.populationEvents.insert(new GivesBirth(
+            female,
+            population,
+            eventTimestamp + normal(9.0, 0.5)
+        ));
+        return;           
+    }
+}
+
+class GivesBirth implements Event {
+    var Female female;
+    var Population population;
+    var real eventTimestamp;
+
+    constructor GivesBirth(Female female, Population population, real timestamp) {
+        this.female = female;
+        this.population = population;
+        eventTimestamp = timestamp;
+    }
+
+    method boolean isFeasible() {
+        return female.isAlive and female.isPregnant;
+    }
+
+    method real timestamp() {
+        return eventTimestamp;
+    }
+
+    method void action() {       
+        var int numChildren = discreteUniform(1, 2);        
+        var int i = 0;
+        female.isPregnant = false;     
+        while (i < numChildren) {
+            if (discreteUniform(0, 1) == 0) {
+                population.populationFemales[population.populationFemalesCount] = new Female(population);
+                population.populationFemalesCount = population.populationFemalesCount + 1;
+                population.femaleCount.increment(1);
+            }
+            else {
+                population.populationMales[population.populationMalesCount] = new Male(population);
+                population.populationMalesCount = population.populationMalesCount + 1;
+                population.maleCount.increment(1);
+            }
+            i = i + 1;
+        }
+        return;
+    }
+}
+
+class Male {
+    var Population population;
+    var boolean isAlive;
+
+    constructor Male(Population population) {
+        isAlive = true;
+        this.population = population; 
+        population.events().insert(new MaleDies(
+            this,
+            population,
+            population.populationClock + normal(840.0, 12.0)
+        ));
+    }
+}
+
+class MaleDies implements Event {
+    var Male male;
+    var Population population;
+    var real eventTimestamp;
+
+    constructor MaleDies(Male male, Population population, real timestamp) {
+        this.male = male;
+        this.population = population;
+        eventTimestamp = timestamp;
+    }
+
+    method boolean isFeasible() {
+        return male.isAlive;
+    }
+
+    method real timestamp() {
+        return eventTimestamp;
+    }
+
+    method void action() {
+        male.isAlive = false;
+        population.maleCount.decrement(1);  
+        return;
+    }
+}

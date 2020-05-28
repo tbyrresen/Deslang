@@ -13,4 +13,8 @@
     <PackageReference Include="System.Linq" Version="4.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Deslang Examples\" />
+  </ItemGroup>
+
 </Project>
